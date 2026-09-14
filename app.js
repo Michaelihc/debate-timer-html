@@ -111,6 +111,13 @@
       invalidTitle: "Invalid JSON",
       invalidText: "The JSON tab has errors and cannot be saved. Discard the changes?",
       keepEditing: "Keep editing",
+      reloadTitle: "Restart the debate?",
+      reloadText: "A debate is in progress. Reload Scene resets it to the beginning.",
+      reloadConfirm: "Reload",
+      cancel: "Cancel",
+      saveFailed: "Could not save (storage full?): ",
+      invalidEvents: "The event order refers to speakers that do not exist: ",
+      fullscreen: "Fullscreen (F)",
     },
     zh: {
       menu: "菜单",
@@ -178,6 +185,13 @@
       invalidTitle: "JSON 格式错误",
       invalidText: "JSON 内容有错误，无法保存。是否放弃更改？",
       keepEditing: "继续编辑",
+      reloadTitle: "重新开始辩论？",
+      reloadText: "辩论正在进行中，刷新将回到开始状态。",
+      reloadConfirm: "刷新",
+      cancel: "取消",
+      saveFailed: "保存失败（存储空间不足？）：",
+      invalidEvents: "流程顺序中引用了不存在的辩手：",
+      fullscreen: "全屏 (F)",
     },
   };
 
@@ -195,8 +209,39 @@
     }
     return t;
   }
+  // Returns an error message on failure (e.g. storage quota exceeded), else null.
   function saveText(t) {
-    localStorage.setItem(STORAGE_KEY, t);
+    try {
+      localStorage.setItem(STORAGE_KEY, t);
+      return null;
+    } catch (e) {
+      return e && e.message ? e.message : String(e);
+    }
+  }
+
+  // ---- Debate progress (survives a page refresh, cleared by Reload Scene) ----
+  const PROGRESS_KEY = "debate-timer-progress";
+
+  function hashString(s) {
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return String(h >>> 0);
+  }
+
+  function readProgress() {
+    try {
+      const p = JSON.parse(sessionStorage.getItem(PROGRESS_KEY) || "null");
+      return p && typeof p === "object" ? p : null;
+    } catch (_) {
+      return null;
+    }
+  }
+  function clearProgress() {
+    try {
+      sessionStorage.removeItem(PROGRESS_KEY);
+    } catch (_) {
+      /* ignore */
+    }
   }
 
   function normalizeColor(v, fallback) {
@@ -480,6 +525,13 @@
       const v = I18N[state.lang][el.dataset.i18n];
       if (typeof v === "string") el.textContent = v;
     });
+    document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+      const v = I18N[state.lang][el.dataset.i18nTitle];
+      if (typeof v === "string") {
+        el.title = v;
+        el.setAttribute("aria-label", v);
+      }
+    });
     els.btnLang.textContent = t("langBtn");
     els.btnNext.textContent = state.eventIndex < 0 ? t("begin") : t("next");
     if (state.data) {
@@ -517,8 +569,82 @@
     else if (ev === "free") els.title.textContent = t("free");
     else {
       const p = participant(speakerIdAt(i));
-      els.title.textContent = p ? t("speakerTurn")(p.name) : String(ev);
+      els.title.textContent = p ? t("speakerTurn")(p.name) : `${t("fNoSpeaker")} (${ev})`;
     }
+  }
+
+  function configHash() {
+    return hashString(JSON.stringify(state.data));
+  }
+
+  function timerSnap(tm) {
+    return { total: tm.total, remaining: tm.remaining, running: tm.running, timedOut: tm.timedOut, warned: tm.warned };
+  }
+
+  function persistProgress() {
+    if (!state.data || state.eventIndex < 0) {
+      clearProgress();
+      return;
+    }
+    const p = {
+      hash: configHash(),
+      savedAt: Date.now(),
+      eventIndex: state.eventIndex,
+      currentSpeaker: state.currentSpeaker,
+      nextSpeaker: state.nextSpeaker,
+      prepPhase: state.prepPhase,
+      freePhase: state.freePhase,
+      ringVisible: !els.ringTimer.classList.contains("hidden"),
+      doubleVisible: !els.doubleTimer.classList.contains("hidden"),
+      ring: timerSnap(ringTimer),
+      bars: barTimers.map(timerSnap),
+    };
+    try {
+      sessionStorage.setItem(PROGRESS_KEY, JSON.stringify(p));
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  function applyTimerSnap(tm, s, elapsed) {
+    if (!s) return;
+    tm.total = Number(s.total) || 0;
+    tm.remaining = Number(s.remaining) || 0;
+    tm.running = Boolean(s.running);
+    tm.timedOut = Boolean(s.timedOut);
+    tm.warned = Boolean(s.warned);
+    if (tm.running) {
+      // Time kept passing while the page was gone.
+      tm.remaining -= elapsed;
+      if (tm.remaining <= tm.warningThreshold) tm.warned = true;
+      if (tm.remaining <= 0) {
+        tm.remaining = 0;
+        tm.running = false;
+        tm.timedOut = true;
+      }
+    }
+    tm.syncButtons();
+  }
+
+  function restoreProgress(p) {
+    if (!p || p.hash !== configHash()) return false;
+    const idx = Number(p.eventIndex);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= state.data.event_order.length) return false;
+    const elapsed = Math.max(0, (Date.now() - (Number(p.savedAt) || Date.now())) / 1000);
+    state.eventIndex = idx;
+    state.currentSpeaker = p.currentSpeaker ?? null;
+    state.nextSpeaker = p.nextSpeaker ?? null;
+    state.prepPhase = Boolean(p.prepPhase);
+    state.freePhase = Boolean(p.freePhase);
+    applyTimerSnap(ringTimer, p.ring, elapsed);
+    (p.bars || []).forEach((s, i) => barTimers[i] && applyTimerSnap(barTimers[i], s, elapsed));
+    show(els.ringTimer, Boolean(p.ringVisible));
+    show(els.doubleTimer, Boolean(p.doubleVisible));
+    updateTitle();
+    els.btnNext.textContent = t("next");
+    updateTimelineActive();
+    updateSpeakerIndicators();
+    return true;
   }
 
   function applyTheme(settings) {
@@ -573,10 +699,25 @@
     show(els.ringTimer, false);
     show(els.doubleTimer, false);
     show(els.endOverlay, false);
+    clearProgress();
 
     applyI18n();
     updateSpeakerIndicators();
     updateTimelineActive();
+  }
+
+  // Reload Scene, asking first if a debate is in progress.
+  function requestReload() {
+    if (state.eventIndex < 0) {
+      loadScene();
+      return;
+    }
+    confirmDialog({
+      title: t("reloadTitle"),
+      text: t("reloadText"),
+      primary: { label: t("reloadConfirm"), cls: "btn-red", action: loadScene },
+      cancel: t("cancel"),
+    });
   }
 
   function buildSpeakers(side, count, color) {
@@ -686,6 +827,7 @@
       } else if (ev === "free") {
         state.currentSpeaker = null;
         state.freePhase = true;
+        ringTimer.reset(); // stop the hidden ring timer so it cannot ring during free debate
         show(els.ringTimer, false);
         show(els.doubleTimer, true);
         barTimers.forEach((bt) => {
@@ -698,7 +840,7 @@
         const p = participant(id);
         ringTimer.total = p ? p.time : 0;
         ringTimer.reset();
-        ringTimer.start();
+        if (p) ringTimer.start(); // a missing speaker shows 0 instead of ringing instantly
       }
     }
 
@@ -706,6 +848,13 @@
     els.btnNext.textContent = state.eventIndex < 0 ? t("begin") : t("next");
     updateTimelineActive();
     updateSpeakerIndicators();
+    persistProgress();
+  }
+
+  function previous() {
+    if (state.eventIndex <= 0) return;
+    state.eventIndex -= 2;
+    next();
   }
 
   // ---------------------------------------------------------------------------
@@ -732,6 +881,36 @@
   function closeMenu() {
     show(els.menuOverlay, false);
     show(confirmOverlay, false);
+    // Undo any language preview that was not saved.
+    if (state.data && state.lang !== state.data.settings.language) {
+      state.lang = state.data.settings.language;
+      applyI18n();
+    }
+  }
+
+  // Generic 1–3 button confirm dialog.
+  // opts: { title, text, primary?: {label, cls, action}, secondary?: {label, cls, action}, cancel }
+  function confirmDialog(opts) {
+    $("confirm-title").textContent = opts.title;
+    $("confirm-text").textContent = opts.text;
+    const wire = (id, spec) => {
+      const b = $(id);
+      show(b, Boolean(spec));
+      if (!spec) return;
+      b.textContent = spec.label;
+      b.className = "btn " + (spec.cls || "btn-mint");
+      b.onclick = () => {
+        show(confirmOverlay, false);
+        spec.action();
+      };
+    };
+    wire("confirm-save", opts.primary);
+    wire("confirm-discard", opts.secondary);
+    const c = $("confirm-cancel");
+    c.textContent = opts.cancel || t("cancel");
+    c.onclick = () => show(confirmOverlay, false);
+    show(confirmOverlay, true);
+    (opts.primary ? $("confirm-save") : opts.secondary ? $("confirm-discard") : c).focus();
   }
 
   function storedDraft() {
@@ -754,19 +933,22 @@
       closeMenu();
       return;
     }
-    $("confirm-title").textContent = t(valid ? "unsavedTitle" : "invalidTitle");
-    $("confirm-text").textContent = t(valid ? "unsavedText" : "invalidText");
-    show($("confirm-save"), valid);
-    show(confirmOverlay, true);
-    $(valid ? "confirm-save" : "confirm-discard").focus();
+    confirmDialog({
+      title: t(valid ? "unsavedTitle" : "invalidTitle"),
+      text: t(valid ? "unsavedText" : "invalidText"),
+      primary: valid ? { label: t("saveApply"), cls: "btn-mint", action: saveAndApply } : null,
+      secondary: {
+        label: t("discard"),
+        cls: "btn-yellow",
+        action: () => {
+          draft = storedDraft();
+          setError("");
+          closeMenu();
+        },
+      },
+      cancel: t("keepEditing"),
+    });
   }
-  $("confirm-save").addEventListener("click", saveAndApply);
-  $("confirm-discard").addEventListener("click", () => {
-    draft = storedDraft();
-    setError("");
-    closeMenu();
-  });
-  $("confirm-cancel").addEventListener("click", () => show(confirmOverlay, false));
   confirmOverlay.addEventListener("click", (e) => {
     if (e.target === confirmOverlay) show(confirmOverlay, false);
   });
@@ -799,7 +981,16 @@
 
   function saveAndApply() {
     if (!commitView()) return;
-    saveText(JSON.stringify(draft, null, 2));
+    const missing = draft.event_order.filter((ev) => typeof ev === "number" && !participant2(ev));
+    if (missing.length) {
+      setError(t("invalidEvents") + missing.join(", "));
+      return;
+    }
+    const err = saveText(JSON.stringify(draft, null, 2));
+    if (err) {
+      setError(t("saveFailed") + err);
+      return;
+    }
     closeMenu();
     loadScene();
   }
@@ -849,20 +1040,13 @@
   });
 
   // Language toggle: applies immediately and is persisted into the save file.
+  // Language toggle: edits the draft and previews the UI; saved with Save & Apply.
   els.btnLang.addEventListener("click", () => {
+    if (!commitView()) return;
     state.lang = state.lang === "en" ? "zh" : "en";
-    state.data.settings.language = state.lang;
-    if (draft) draft.settings.language = state.lang;
-    try {
-      const raw = JSON.parse(loadText());
-      raw.settings = raw.settings || {};
-      raw.settings.language = state.lang;
-      saveText(JSON.stringify(raw, null, 2));
-    } catch (_) {
-      /* stored JSON is broken – keep language in memory only */
-    }
+    draft.settings.language = state.lang;
     applyI18n();
-    if (!els.menuOverlay.classList.contains("hidden")) switchTab(activeTab, true);
+    switchTab(activeTab, true);
   });
 
   // ---- Form rendering ------------------------------------------------------
@@ -1205,35 +1389,72 @@
   // ---------------------------------------------------------------------------
   // Global buttons, keyboard, end screen
   // ---------------------------------------------------------------------------
-  $("btn-reload").addEventListener("click", loadScene);
+  $("btn-reload").addEventListener("click", requestReload);
   $("btn-end-reload").addEventListener("click", loadScene);
   $("btn-end-close").addEventListener("click", () => show(els.endOverlay, false));
   els.btnNext.addEventListener("click", next);
 
+  // Fullscreen
+  function toggleFullscreen() {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+  }
+  $("btn-fullscreen").addEventListener("click", toggleFullscreen);
+
+  // Screen wake lock while a debate is in progress
+  let wakeLock = null;
+  function updateWakeLock() {
+    if (!("wakeLock" in navigator)) return;
+    const want = state.eventIndex >= 0 && !document.hidden;
+    if (want && !wakeLock) {
+      navigator.wakeLock
+        .request("screen")
+        .then((l) => {
+          wakeLock = l;
+          l.addEventListener("release", () => {
+            wakeLock = null;
+          });
+        })
+        .catch(() => {});
+    } else if (!want && wakeLock) {
+      wakeLock.release().catch(() => {});
+      wakeLock = null;
+    }
+  }
+  document.addEventListener("visibilitychange", updateWakeLock);
+
+  let lastBar = null; // last bar timer that ran, for the Space shortcut
+
   document.addEventListener("keydown", (e) => {
     const menuOpen = !els.menuOverlay.classList.contains("hidden");
+    const confirmOpen = !confirmOverlay.classList.contains("hidden");
     if (e.key === "Escape") {
-      if (!confirmOverlay.classList.contains("hidden")) show(confirmOverlay, false);
+      if (confirmOpen) show(confirmOverlay, false);
       else if (menuOpen) requestClose();
       else if (!els.endOverlay.classList.contains("hidden")) show(els.endOverlay, false);
       return;
     }
-    if (menuOpen) return;
+    if (menuOpen || confirmOpen) return;
     const tag = document.activeElement && document.activeElement.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+    const key = e.key.toLowerCase();
     if (e.key === " ") {
       e.preventDefault();
       if (state.freePhase) {
         const running = barTimers.find((bt) => bt.running);
         if (running) running.stop();
-        else barPro.toggle();
+        else (lastBar || barPro).toggle();
       } else if (!els.ringTimer.classList.contains("hidden")) {
         ringTimer.toggle();
       }
-    } else if (e.key === "ArrowRight" || e.key.toLowerCase() === "n") {
+    } else if (e.key === "ArrowRight" || key === "n") {
       next();
-    } else if (e.key.toLowerCase() === "i" && state.freePhase) {
+    } else if (e.key === "ArrowLeft" || key === "p") {
+      previous();
+    } else if (key === "i" && state.freePhase) {
       invert();
+    } else if (key === "f") {
+      toggleFullscreen();
     }
   });
 
@@ -1243,6 +1464,7 @@
   // Main loop (Update)
   // ---------------------------------------------------------------------------
   let last = performance.now();
+  let lastHousekeeping = 0;
   function update(now) {
     const dt = Math.max(0, (now - last) / 1000);
     last = now;
@@ -1251,6 +1473,13 @@
     ringTimer.render();
     barTimers.forEach((bt) => bt.render());
     updateSpeakerIndicators();
+    const runningBar = barTimers.find((bt) => bt.running);
+    if (runningBar) lastBar = runningBar;
+    if (now - lastHousekeeping > 500) {
+      lastHousekeeping = now;
+      if (state.eventIndex >= 0) persistProgress();
+      updateWakeLock();
+    }
   }
   function frame(now) {
     update(now);
@@ -1261,6 +1490,8 @@
     if (document.hidden) update(performance.now());
   }, 500);
 
+  const savedProgress = readProgress();
   loadScene();
+  if (savedProgress) restoreProgress(savedProgress);
   requestAnimationFrame(frame);
 })();

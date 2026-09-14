@@ -29,7 +29,9 @@ python -m http.server 8000
 - English and Simplified Chinese UI
 - Download / upload of the save file as JSON
 
-Settings are stored in the browser's `localStorage`. **Save & Apply** in the menu stores the settings and reloads the scene. **Reload Scene** restarts the debate from the stored settings.
+Settings are stored in the browser's `localStorage`. **Save & Apply** in the menu stores the settings and reloads the scene. **Reload Scene** restarts the debate from the stored settings and asks for confirmation while a debate is in progress.
+
+Debate progress (current event and timers) survives an accidental page refresh within the same tab. While a debate is in progress the screen is kept awake where the browser supports it.
 
 ## Keyboard
 
@@ -37,8 +39,10 @@ Settings are stored in the browser's `localStorage`. **Save & Apply** in the men
 | --- | --- |
 | Space | Pause / resume the active timer |
 | Right arrow or N | Next event |
+| Left arrow or P | Previous event |
 | I | Invert (free debate only) |
-| Esc | Close the menu or end screen |
+| F | Toggle fullscreen |
+| Esc | Close the menu, dialog, or end screen |
 
 ## Save file format
 
