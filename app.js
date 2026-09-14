@@ -102,6 +102,9 @@
       fRemove: "Remove",
       fEvents: "Event order",
       fEventsHint: "Drag to reorder. Hover an item and click × to remove it.",
+      viewSimple: "Simple",
+      viewDetailed: "Detailed",
+      perSide: "per side",
       fAddLabel: "Add",
       fEmptyOrder: "No events yet. Click an item below to add it.",
       fFileTooBig: "Audio file is too large (max 2 MB). Use a URL instead.",
@@ -176,6 +179,9 @@
       fRemove: "删除",
       fEvents: "流程顺序",
       fEventsHint: "拖动调整顺序，悬停后点击 × 删除。",
+      viewSimple: "简洁",
+      viewDetailed: "详细",
+      perSide: "每方",
       fAddLabel: "添加",
       fEmptyOrder: "暂无流程，点击下方项目添加。",
       fFileTooBig: "音频文件过大（最大 2 MB），请改用 URL。",
@@ -1092,7 +1098,13 @@
       ${sideSection("con")}
 
       <section class="sgroup">
-        <h3>${esc(t("fEvents"))}</h3>
+        <div class="sgroup-head">
+          <h3>${esc(t("fEvents"))}</h3>
+          <div class="seg" role="group">
+            <button type="button" class="seg-btn ${orderView === "simple" ? "active" : ""}" data-view="simple">${esc(t("viewSimple"))}</button>
+            <button type="button" class="seg-btn ${orderView === "detailed" ? "active" : ""}" data-view="detailed">${esc(t("viewDetailed"))}</button>
+          </div>
+        </div>
         <p class="hint">${esc(t("fEventsHint"))}</p>
         <div class="chips order" id="event-chips"></div>
         <div class="palette-row">
@@ -1161,6 +1173,27 @@
     return p ? p.name : t("fNoSpeaker");
   }
 
+  // "simple": compact chips in a row; "detailed": vertical list with side, name and duration.
+  const ORDER_VIEW_KEY = "debate-timer-order-view";
+  let orderView = localStorage.getItem(ORDER_VIEW_KEY) === "detailed" ? "detailed" : "simple";
+
+  function sideName(id) {
+    const s = draft.settings;
+    return id > 0 ? s.pro_label || t("proDefault") : s.con_label || t("conDefault");
+  }
+
+  // Long description for the detailed view, e.g. "Pro 1 · Team 1 A" and "4:00".
+  function eventDetail(ev) {
+    const s = draft.settings;
+    if (ev === "prep") return { text: t("prep"), time: formatTime(s.time_prep, true) };
+    if (ev === "free") return { text: t("free"), time: `${formatTime(s.time_free, true)} ${t("perSide")}` };
+    const id = Number(ev);
+    const p = participant2(id);
+    const who = `${sideName(id)} ${Math.abs(id)}`;
+    if (!p) return { text: `${who} · ${t("fNoSpeaker")}`, time: "" };
+    return { text: `${who} · ${p.name}`, time: formatTime(p.time, true) };
+  }
+
   function makeChip(ev, extra) {
     const chip = document.createElement("span");
     const id = Number(ev);
@@ -1172,13 +1205,20 @@
       (extra ? " " + extra : "");
     chip.dataset.ev = String(ev);
     chip.title = eventName(ev);
-    chip.innerHTML = `<span class="lbl">${esc(eventLabel(ev))}</span>`;
+    if (orderView === "detailed") {
+      const d = eventDetail(ev);
+      chip.innerHTML = `<span class="lbl">${esc(eventLabel(ev))}</span><span class="txt">${esc(d.text)}</span><span class="dur">${esc(d.time)}</span>`;
+    } else {
+      chip.innerHTML = `<span class="lbl">${esc(eventLabel(ev))}</span>`;
+    }
     return chip;
   }
 
   function renderEventChips() {
     const root = $("event-chips");
     root.innerHTML = "";
+    root.classList.toggle("vertical", orderView === "detailed");
+    $("event-palette").classList.toggle("detailed", orderView === "detailed");
     if (draft.event_order.length === 0) {
       root.innerHTML = `<span class="empty">${esc(t("fEmptyOrder"))}</span>`;
     }
@@ -1242,7 +1282,10 @@
         }
       }
       const r = best.getBoundingClientRect();
-      if (e.clientX < r.left + r.width / 2) root.insertBefore(dragEl, best);
+      const before = root.classList.contains("vertical")
+        ? e.clientY < r.top + r.height / 2
+        : e.clientX < r.left + r.width / 2;
+      if (before) root.insertBefore(dragEl, best);
       else root.insertBefore(dragEl, best.nextSibling);
     }
 
@@ -1347,6 +1390,11 @@
       const [side, idx] = d.delSpeaker.split(":");
       draft[side + "_side"].splice(Number(idx), 1);
       renderSpeakerList(side);
+      renderEventChips();
+    } else if (d.view) {
+      orderView = d.view === "detailed" ? "detailed" : "simple";
+      localStorage.setItem(ORDER_VIEW_KEY, orderView);
+      els.form.querySelectorAll(".seg-btn").forEach((s) => s.classList.toggle("active", s.dataset.view === orderView));
       renderEventChips();
     } else if (d.addEv !== undefined) {
       draft.event_order.push(chipValue(b));

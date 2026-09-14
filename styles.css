@@ -873,10 +873,124 @@ body {
   background: transparent;
   color: #ffb3b3;
 }
-.palette-row {
+/* Section header with a segmented toggle */
+.sgroup-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 1vw;
+  margin-bottom: 1vh;
+}
+.sgroup-head h3 {
+  margin: 0;
+}
+.seg {
+  display: inline-flex;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 0.5em;
+  padding: 0.25em;
+  gap: 0.25em;
+}
+.seg-btn {
+  font-family: inherit;
+  font-size: 1.8vmin;
+  padding: 0.3em 0.9em;
+  border: none;
+  border-radius: 0.4em;
+  background: transparent;
+  color: #bbb;
+  cursor: pointer;
+}
+.seg-btn.active {
+  background: var(--tile);
+  color: #222;
+}
+
+/* Detailed (vertical) event list */
+.chips.vertical {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6vh;
+  counter-reset: step;
+}
+.chips.vertical .chip {
+  justify-content: flex-start;
+  gap: 1vw;
+  height: auto;
+  padding: 0.7vh 1vw 0.7vh 0.6vw;
+  counter-increment: step;
+}
+.chips.vertical .chip::before {
+  content: counter(step);
+  width: 2em;
+  text-align: right;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+.chips.vertical .chip .lbl {
+  min-width: 2.2em;
+  text-align: center;
+  padding: 0.1em 0.4em;
+  border-radius: 0.35em;
+  background: rgba(0, 0, 0, 0.12);
+}
+.chips.vertical .chip .txt {
+  flex: 1;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chips.vertical .chip .dur {
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.55);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.chips.vertical .chip .x {
+  position: static;
+  width: 1.6em;
+  height: 1.6em;
+  opacity: 0.35;
+  background: rgba(0, 0, 0, 0.5);
+}
+.chips.vertical .chip:hover .x {
+  opacity: 1;
+}
+.chips.vertical .chip.dragging {
+  transform: none;
+}
+
+/* Palette in detailed mode: outlined chips with text */
+.chips.palette.detailed .chip {
+  gap: 0.6vw;
+  padding: 0 0.8em;
+}
+.chips.palette.detailed .chip .lbl {
+  min-width: 1.6em;
+  text-align: center;
+}
+.chips.palette.detailed .chip .txt {
+  font-weight: 400;
+  font-size: 1.9vmin;
+  max-width: 14vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chips.palette.detailed .chip .dur {
+  font-weight: 400;
+  font-size: 1.8vmin;
+  opacity: 0.7;
+}
+.palette-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1vw;
+}
+.palette-row .palette-label {
+  padding-top: 0.8vh;
 }
 .palette-label {
   font-size: 1.9vmin;
