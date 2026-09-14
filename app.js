@@ -6,16 +6,25 @@
   // Defaults, i18n, storage
   // ---------------------------------------------------------------------------
   const STORAGE_KEY = "debate-timer-save";
+  const DEFAULT_AUDIO = {
+    warning: "assets/audio/warning.wav",
+    end: "assets/audio/bell.ogg",
+  };
 
   const DEFAULT_SAVE = {
     settings: {
       pro_colors: "#0000FF",
       con_colors: "#FF0000",
+      pro_label: "",
+      con_label: "",
+      background_color: "#000000",
       time_warning: 30,
       time_prep: 300,
       time_free: 500,
       display_minutes: true,
       language: "en",
+      audio_warning: "",
+      audio_end: "",
     },
     title: "New Debate Title",
     pro_side: [
@@ -41,23 +50,64 @@
       begin: "Begin",
       next: "Next",
       save: "Save",
+      saveApply: "Save & Apply",
       discard: "Discard",
       reset: "Reset",
+      resetDefaults: "Reset to Defaults",
       pause: "Pause",
       resume: "Resume",
       start: "Start",
       invert: "Invert",
-      editSave: "Edit Save File",
+      editSave: "Settings",
+      tabSettings: "Settings",
+      tabJson: "JSON",
       timeout: "Time ran out",
       prep: "Preparation Time",
       free: "Free Debate Time",
       ended: "Debate Ended",
       close: "Close",
-      download: "Download",
-      upload: "Upload",
+      download: "Download JSON",
+      upload: "Upload JSON",
       langBtn: "中文",
       invalidJson: "Invalid JSON: ",
+      proDefault: "Pro",
+      conDefault: "Con",
       speakerTurn: (name) => `Speaker ${name}'s Turn`,
+      // settings form
+      fGeneral: "General",
+      fTitle: "Debate title",
+      fLanguage: "Language",
+      fDisplayMinutes: "Show minutes (m:ss)",
+      fBackground: "Background color",
+      fTimes: "Times (seconds)",
+      fWarning: "Warning at",
+      fPrep: "Preparation",
+      fFree: "Free debate (per side)",
+      fSounds: "Sounds",
+      fWarningSound: "Warning sound",
+      fEndSound: "End sound",
+      fChooseFile: "Choose file…",
+      fDefault: "Default",
+      fPlay: "Play",
+      fUrlPlaceholder: "URL or leave empty for default",
+      fProSide: "Pro side",
+      fConSide: "Con side",
+      fLabel: "Label",
+      fLabelPlaceholder: "Shown above the column",
+      fColor: "Color",
+      fSpeakers: "Speakers",
+      fName: "Name",
+      fSeconds: "Seconds",
+      fAdd: "+ Add speaker",
+      fRemove: "Remove",
+      fEvents: "Event order",
+      fEventsHint: "Click an item to remove it. Use the arrows to reorder.",
+      fAddPrep: "+ Prep",
+      fAddFree: "+ Free debate",
+      fAddPro: "+ Pro",
+      fAddCon: "+ Con",
+      fFileTooBig: "Audio file is too large (max 2 MB). Use a URL instead.",
+      fNoSpeaker: "Speaker does not exist",
     },
     zh: {
       menu: "菜单",
@@ -65,23 +115,63 @@
       begin: "开始",
       next: "下一项",
       save: "保存",
+      saveApply: "保存并应用",
       discard: "放弃更改",
       reset: "重置",
+      resetDefaults: "恢复默认",
       pause: "暂停",
       resume: "继续",
       start: "开始",
       invert: "翻转",
-      editSave: "编辑存档",
+      editSave: "设置",
+      tabSettings: "设置",
+      tabJson: "JSON",
       timeout: "时间到",
       prep: "准备时间",
       free: "自由辩论",
       ended: "辩论结束",
       close: "关闭",
-      download: "下载存档",
-      upload: "导入存档",
+      download: "下载 JSON",
+      upload: "导入 JSON",
       langBtn: "English",
       invalidJson: "JSON 格式错误：",
+      proDefault: "正方",
+      conDefault: "反方",
       speakerTurn: (name) => `辩手 ${name} 发言`,
+      fGeneral: "常规",
+      fTitle: "辩题",
+      fLanguage: "语言",
+      fDisplayMinutes: "显示分钟 (m:ss)",
+      fBackground: "背景颜色",
+      fTimes: "时间（秒）",
+      fWarning: "警告提示",
+      fPrep: "准备时间",
+      fFree: "自由辩论（每方）",
+      fSounds: "音效",
+      fWarningSound: "警告音效",
+      fEndSound: "结束音效",
+      fChooseFile: "选择文件…",
+      fDefault: "默认",
+      fPlay: "试听",
+      fUrlPlaceholder: "输入 URL，留空使用默认",
+      fProSide: "正方",
+      fConSide: "反方",
+      fLabel: "标签",
+      fLabelPlaceholder: "显示在辩手上方",
+      fColor: "颜色",
+      fSpeakers: "辩手",
+      fName: "姓名",
+      fSeconds: "秒",
+      fAdd: "+ 添加辩手",
+      fRemove: "删除",
+      fEvents: "流程顺序",
+      fEventsHint: "点击项目可删除，使用箭头调整顺序。",
+      fAddPrep: "+ 准备",
+      fAddFree: "+ 自由辩论",
+      fAddPro: "+ 正方",
+      fAddCon: "+ 反方",
+      fFileTooBig: "音频文件过大（最大 2 MB），请改用 URL。",
+      fNoSpeaker: "辩手不存在",
     },
   };
 
@@ -103,30 +193,53 @@
     localStorage.setItem(STORAGE_KEY, t);
   }
 
+  function normalizeColor(v, fallback) {
+    const s = String(v || "").trim();
+    if (/^#[0-9a-f]{6}$/i.test(s)) return s.toUpperCase();
+    if (/^#[0-9a-f]{3}$/i.test(s)) return ("#" + s[1] + s[1] + s[2] + s[2] + s[3] + s[3]).toUpperCase();
+    if (/^#[0-9a-f]{8}$/i.test(s)) return s.slice(0, 7).toUpperCase();
+    return fallback;
+  }
+
   function parseSave(text) {
-    const raw = JSON.parse(text);
+    const raw = typeof text === "string" ? JSON.parse(text) : text;
+    if (!raw || typeof raw !== "object") throw new Error("root must be an object");
     const s = Object.assign({}, DEFAULT_SAVE.settings, raw.settings || {});
     const list = (arr) =>
       Array.isArray(arr)
         ? arr.map((p, i) => ({
             name: p && p.name != null ? String(p.name) : String(i + 1),
-            time: Number(p && p.time) || 0,
+            time: Math.max(0, Number(p && p.time) || 0),
           }))
         : [];
+    const events = Array.isArray(raw.event_order)
+      ? raw.event_order
+          .map((e) => {
+            if (e === "prep" || e === "free") return e;
+            const n = Number(e);
+            return Number.isInteger(n) && n !== 0 ? n : null;
+          })
+          .filter((e) => e !== null)
+      : [];
     return {
       settings: {
-        pro_colors: String(s.pro_colors || "#0000FF"),
-        con_colors: String(s.con_colors || "#FF0000"),
-        time_warning: Number(s.time_warning) || 0,
-        time_prep: Number(s.time_prep) || 0,
-        time_free: Number(s.time_free) || 0,
+        pro_colors: normalizeColor(s.pro_colors, "#0000FF"),
+        con_colors: normalizeColor(s.con_colors, "#FF0000"),
+        pro_label: String(s.pro_label || ""),
+        con_label: String(s.con_label || ""),
+        background_color: normalizeColor(s.background_color, "#000000"),
+        time_warning: Math.max(0, Number(s.time_warning) || 0),
+        time_prep: Math.max(0, Number(s.time_prep) || 0),
+        time_free: Math.max(0, Number(s.time_free) || 0),
         display_minutes: Boolean(s.display_minutes),
         language: normalizeLang(s.language),
+        audio_warning: String(s.audio_warning || ""),
+        audio_end: String(s.audio_end || ""),
       },
       title: raw.title != null ? String(raw.title) : "",
       pro_side: list(raw.pro_side),
       con_side: list(raw.con_side),
-      event_order: Array.isArray(raw.event_order) ? raw.event_order : [],
+      event_order: events,
     };
   }
 
@@ -135,12 +248,16 @@
   // ---------------------------------------------------------------------------
   const $ = (id) => document.getElementById(id);
   const show = (el, on) => el.classList.toggle("hidden", !on);
+  const esc = (s) =>
+    String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
   const els = {
     title: $("title"),
     flash: $("flash"),
     proCol: $("pro-column"),
     conCol: $("con-column"),
+    proLabel: $("pro-label"),
+    conLabel: $("con-label"),
     ringTimer: $("ring-timer"),
     doubleTimer: $("double-timer"),
     ringBg: $("ring-bg"),
@@ -154,8 +271,14 @@
     editorError: $("editor-error"),
     btnLang: $("btn-lang"),
     fileInput: $("file-input"),
+    audioFileInput: $("audio-file-input"),
     audioWarning: $("audio-warning"),
     audioEnd: $("audio-end"),
+    form: $("settings-form"),
+    formView: $("form-view"),
+    jsonView: $("json-view"),
+    tabForm: $("tab-form"),
+    tabJson: $("tab-json"),
   };
   const RING_CIRC = 2 * Math.PI * 44;
 
@@ -182,7 +305,7 @@
   // ---------------------------------------------------------------------------
   class Timer {
     constructor(ui) {
-      this.ui = ui; // {fg, bg, text, start, pause, resume, out, reset, onRunningChange}
+      this.ui = ui;
       this.total = 180;
       this.warningThreshold = 30;
       this.displayMinutes = true;
@@ -220,6 +343,10 @@
       }
     }
 
+    get fresh() {
+      return !this.running && !this.timedOut && this.remaining === this.total;
+    }
+
     start() {
       this.remaining = this.total;
       this.running = true;
@@ -242,10 +369,16 @@
       this.warned = this.total <= this.warningThreshold;
       this.syncButtons();
     }
+    toggle() {
+      if (this.running) this.stop();
+      else if (this.timedOut) return;
+      else if (this.fresh) this.start();
+      else this.resume();
+    }
 
     syncButtons() {
       const u = this.ui;
-      const fresh = !this.running && !this.timedOut && this.remaining === this.total;
+      const fresh = this.fresh;
       show(u.start, fresh);
       show(u.pause, this.running);
       show(u.resume, !this.running && !this.timedOut && !fresh);
@@ -263,7 +396,6 @@
     }
   }
 
-  // Ring timer UI
   const ringTimer = new Timer({
     fg: els.ringFg,
     bg: els.ringBg,
@@ -278,7 +410,6 @@
     },
   });
 
-  // Bar timers UI
   function makeBarTimer(root) {
     const label = root.querySelector(".bar-label");
     const fg = root.querySelector(".bar-fg");
@@ -301,7 +432,7 @@
   const [barPro, barCon] = barTimers;
 
   // InvertTimer.swap()
-  $("btn-invert").addEventListener("click", () => {
+  function invert() {
     if (barPro.running && !barCon.running) {
       barPro.stop();
       barCon.resume();
@@ -309,12 +440,12 @@
       barCon.stop();
       barPro.resume();
     }
-  });
+  }
+  $("btn-invert").addEventListener("click", invert);
 
   function triggerFlash() {
     els.flash.classList.remove("go");
-    // force reflow so the animation restarts
-    void els.flash.offsetWidth;
+    void els.flash.offsetWidth; // restart the animation
     els.flash.classList.add("go");
   }
 
@@ -340,12 +471,15 @@
   function applyI18n() {
     document.documentElement.lang = state.lang === "zh" ? "zh-Hans" : "en";
     document.querySelectorAll("[data-i18n]").forEach((el) => {
-      const key = el.dataset.i18n;
-      const v = I18N[state.lang][key];
+      const v = I18N[state.lang][el.dataset.i18n];
       if (typeof v === "string") el.textContent = v;
     });
     els.btnLang.textContent = t("langBtn");
     els.btnNext.textContent = state.eventIndex < 0 ? t("begin") : t("next");
+    if (state.data) {
+      els.proLabel.textContent = state.data.settings.pro_label || t("proDefault");
+      els.conLabel.textContent = state.data.settings.con_label || t("conDefault");
+    }
     updateTitle();
   }
 
@@ -356,8 +490,16 @@
     return Number.isInteger(v) && v !== 0 ? v : null;
   }
 
+  function participant(id) {
+    const d = state.data;
+    if (id > 0) return d.pro_side[id - 1] || null;
+    if (id < 0) return d.con_side[-id - 1] || null;
+    return null;
+  }
+
   function updateTitle() {
     const d = state.data;
+    if (!d) return;
     const order = d.event_order;
     const i = state.eventIndex;
     if (i < 0 || i >= order.length) {
@@ -368,10 +510,27 @@
     if (ev === "prep") els.title.textContent = t("prep");
     else if (ev === "free") els.title.textContent = t("free");
     else {
-      const id = speakerIdAt(i);
-      const p = id > 0 ? d.pro_side[id - 1] : d.con_side[-id - 1];
+      const p = participant(speakerIdAt(i));
       els.title.textContent = p ? t("speakerTurn")(p.name) : String(ev);
     }
+  }
+
+  function applyTheme(settings) {
+    const bg = settings.background_color;
+    document.documentElement.style.setProperty("--bg", bg);
+    // Pick a readable foreground for light backgrounds.
+    const r = parseInt(bg.slice(1, 3), 16);
+    const g = parseInt(bg.slice(3, 5), 16);
+    const b = parseInt(bg.slice(5, 7), 16);
+    const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    document.documentElement.classList.toggle("light-bg", lum > 0.6);
+  }
+
+  function applyAudio(settings) {
+    const w = settings.audio_warning || DEFAULT_AUDIO.warning;
+    const e = settings.audio_end || DEFAULT_AUDIO.end;
+    if (els.audioWarning.getAttribute("src") !== w) els.audioWarning.src = w;
+    if (els.audioEnd.getAttribute("src") !== e) els.audioEnd.src = e;
   }
 
   // Build speaker columns + timeline from the current save (loadScene)
@@ -392,11 +551,12 @@
       bt.displayMinutes = data.settings.display_minutes;
     });
 
+    applyTheme(data.settings);
+    applyAudio(data.settings);
     buildSpeakers("pro", data.pro_side.length, data.settings.pro_colors);
     buildSpeakers("con", data.con_side.length, data.settings.con_colors);
     buildTimeline(data.event_order);
 
-    // reset flow
     state.eventIndex = -1;
     state.currentSpeaker = null;
     state.nextSpeaker = null;
@@ -443,10 +603,14 @@
 
   function fitSpeakerSize() {
     const n = Math.max(state.speakers.pro.length, state.speakers.con.length, 1);
-    const avail = els.proCol.clientHeight || window.innerHeight * 0.7;
+    const avail = els.proCol.clientHeight || window.innerHeight * 0.65;
     const gap = avail * 0.06;
     const h = Math.min(avail * 0.24, (avail - (n - 1) * gap) / n);
     document.documentElement.style.setProperty("--fig-h", `${Math.max(30, h)}px`);
+  }
+
+  function eventLabel(ev) {
+    return ev === "prep" ? "P" : ev === "free" ? "F" : String(ev);
   }
 
   function buildTimeline(order) {
@@ -454,11 +618,11 @@
     state.timelineButtons = order.map((ev, i) => {
       const b = document.createElement("button");
       b.className = "tl-btn";
-      b.textContent = ev === "prep" ? "P" : ev === "free" ? "F" : String(ev);
-      b.title = String(ev);
+      b.textContent = eventLabel(ev);
+      const p = participant(Number(ev));
+      b.title = ev === "prep" ? t("prep") : ev === "free" ? t("free") : p ? p.name : String(ev);
       b.addEventListener("click", () => {
-        // TimelineButtonControl.OnButtonPress: jump to event i
-        state.eventIndex = i - 1;
+        state.eventIndex = i - 1; // TimelineButtonControl.OnButtonPress
         next();
       });
       els.timeline.appendChild(b);
@@ -498,7 +662,6 @@
     show(els.doubleTimer, false);
 
     if (state.eventIndex >= order.length) {
-      // End of debate
       state.eventIndex = -1;
       state.currentSpeaker = null;
       state.nextSpeaker = null;
@@ -526,7 +689,7 @@
       } else {
         const id = speakerIdAt(state.eventIndex);
         state.currentSpeaker = id;
-        const p = id > 0 ? d.pro_side[id - 1] : id < 0 ? d.con_side[-id - 1] : null;
+        const p = participant(id);
         ringTimer.total = p ? p.time : 0;
         ringTimer.reset();
         ringTimer.start();
@@ -540,55 +703,90 @@
   }
 
   // ---------------------------------------------------------------------------
-  // Menu / save-file editor
+  // Settings panel: form view + JSON view over a shared draft
   // ---------------------------------------------------------------------------
-  let cachedText = DEFAULT_TEXT;
+  let draft = null;
+  let activeTab = "form";
+
+  function setError(msg) {
+    els.editorError.textContent = msg || "";
+  }
 
   function openMenu() {
-    cachedText = loadText();
-    els.editor.value = cachedText;
-    els.editorError.textContent = "";
+    try {
+      draft = parseSave(loadText());
+    } catch (_) {
+      draft = parseSave(DEFAULT_TEXT);
+    }
+    setError("");
+    switchTab(activeTab, true);
     show(els.menuOverlay, true);
   }
 
   function closeMenu() {
-    // OnDisable in the original auto-saves the field on close
-    if (els.editor.value.trim().length > 3) {
-      if (!trySave(els.editor.value)) return; // keep open on invalid JSON
-    }
     show(els.menuOverlay, false);
   }
 
-  function trySave(text) {
-    try {
-      parseSave(text);
-    } catch (e) {
-      els.editorError.textContent = t("invalidJson") + e.message;
-      return false;
+  // Pull the current view's edits into `draft`. Returns false on invalid JSON.
+  function commitView() {
+    if (activeTab === "json") {
+      try {
+        draft = parseSave(els.editor.value);
+      } catch (e) {
+        setError(t("invalidJson") + e.message);
+        return false;
+      }
     }
-    saveText(text);
-    els.editorError.textContent = "";
+    setError("");
     return true;
   }
 
+  function switchTab(tab, force) {
+    if (!force && tab === activeTab) return;
+    if (!force && !commitView()) return;
+    activeTab = tab;
+    els.tabForm.classList.toggle("active", tab === "form");
+    els.tabJson.classList.toggle("active", tab === "json");
+    show(els.formView, tab === "form");
+    show(els.jsonView, tab === "json");
+    if (tab === "form") renderForm();
+    else els.editor.value = JSON.stringify(draft, null, 2);
+  }
+
+  function saveAndApply() {
+    if (!commitView()) return;
+    saveText(JSON.stringify(draft, null, 2));
+    closeMenu();
+    loadScene();
+  }
+
+  els.tabForm.addEventListener("click", () => switchTab("form"));
+  els.tabJson.addEventListener("click", () => switchTab("json"));
   $("btn-menu").addEventListener("click", () => {
     if (els.menuOverlay.classList.contains("hidden")) openMenu();
     else closeMenu();
   });
   $("btn-close").addEventListener("click", closeMenu);
-  $("btn-save").addEventListener("click", () => trySave(els.editor.value));
+  $("btn-save").addEventListener("click", saveAndApply);
   $("btn-discard").addEventListener("click", () => {
-    els.editor.value = cachedText;
-    els.editorError.textContent = "";
+    try {
+      draft = parseSave(loadText());
+    } catch (_) {
+      draft = parseSave(DEFAULT_TEXT);
+    }
+    setError("");
+    switchTab(activeTab, true);
   });
   $("btn-reset-save").addEventListener("click", () => {
-    saveText(DEFAULT_TEXT);
-    els.editor.value = DEFAULT_TEXT;
-    els.editorError.textContent = "";
+    draft = parseSave(DEFAULT_TEXT);
+    draft.settings.language = state.lang;
+    setError("");
+    switchTab(activeTab, true);
   });
 
   $("btn-download").addEventListener("click", () => {
-    const blob = new Blob([els.editor.value], { type: "application/json" });
+    if (!commitView()) return;
+    const blob = new Blob([JSON.stringify(draft, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "save.json";
@@ -598,30 +796,275 @@
   $("btn-upload").addEventListener("click", () => els.fileInput.click());
   els.fileInput.addEventListener("change", () => {
     const f = els.fileInput.files && els.fileInput.files[0];
+    els.fileInput.value = "";
     if (!f) return;
     f.text().then((txt) => {
       els.editor.value = txt;
-      els.editorError.textContent = "";
+      setError("");
     });
-    els.fileInput.value = "";
   });
 
-  // ToggleLanguage – persisted into the save file's settings.language
+  // Language toggle: applies immediately and is persisted into the save file.
   els.btnLang.addEventListener("click", () => {
     state.lang = state.lang === "en" ? "zh" : "en";
     state.data.settings.language = state.lang;
+    if (draft) draft.settings.language = state.lang;
     try {
-      const raw = JSON.parse(els.editor.value);
+      const raw = JSON.parse(loadText());
       raw.settings = raw.settings || {};
       raw.settings.language = state.lang;
-      els.editor.value = JSON.stringify(raw, null, 2);
-      saveText(els.editor.value);
-      cachedText = els.editor.value;
+      saveText(JSON.stringify(raw, null, 2));
     } catch (_) {
-      /* editor holds invalid JSON – language stays in-memory only */
+      /* stored JSON is broken – keep language in memory only */
     }
     applyI18n();
+    if (!els.menuOverlay.classList.contains("hidden")) switchTab(activeTab, true);
   });
+
+  // ---- Form rendering ------------------------------------------------------
+  function field(labelKey, inner, extraClass) {
+    return `<label class="f ${extraClass || ""}"><span>${esc(t(labelKey))}</span>${inner}</label>`;
+  }
+
+  function renderForm() {
+    const s = draft.settings;
+    els.form.innerHTML = `
+      <section class="sgroup">
+        <h3>${esc(t("fGeneral"))}</h3>
+        <div class="frow">
+          ${field("fTitle", `<input type="text" data-path="title" value="${esc(draft.title)}" />`, "grow")}
+          ${field(
+            "fLanguage",
+            `<select data-path="settings.language">
+              <option value="en" ${s.language === "en" ? "selected" : ""}>English</option>
+              <option value="zh" ${s.language === "zh" ? "selected" : ""}>中文</option>
+            </select>`
+          )}
+          ${field("fBackground", `<input type="color" data-path="settings.background_color" value="${esc(s.background_color)}" />`)}
+          <label class="f check"><input type="checkbox" data-path="settings.display_minutes" ${s.display_minutes ? "checked" : ""} /><span>${esc(t("fDisplayMinutes"))}</span></label>
+        </div>
+      </section>
+
+      <section class="sgroup">
+        <h3>${esc(t("fTimes"))}</h3>
+        <div class="frow">
+          ${field("fWarning", `<input type="number" min="0" step="1" data-path="settings.time_warning" value="${s.time_warning}" />`)}
+          ${field("fPrep", `<input type="number" min="0" step="1" data-path="settings.time_prep" value="${s.time_prep}" />`)}
+          ${field("fFree", `<input type="number" min="0" step="1" data-path="settings.time_free" value="${s.time_free}" />`)}
+        </div>
+      </section>
+
+      <section class="sgroup">
+        <h3>${esc(t("fSounds"))}</h3>
+        ${audioRow("fWarningSound", "audio_warning", DEFAULT_AUDIO.warning)}
+        ${audioRow("fEndSound", "audio_end", DEFAULT_AUDIO.end)}
+      </section>
+
+      ${sideSection("pro")}
+      ${sideSection("con")}
+
+      <section class="sgroup">
+        <h3>${esc(t("fEvents"))}</h3>
+        <p class="hint">${esc(t("fEventsHint"))}</p>
+        <div class="chips" id="event-chips"></div>
+        <div class="frow adders">
+          <button type="button" class="btn btn-lime sm" data-add="prep">${esc(t("fAddPrep"))}</button>
+          <button type="button" class="btn btn-lime sm" data-add="free">${esc(t("fAddFree"))}</button>
+          <span class="adder"><button type="button" class="btn btn-lime sm" data-add="pro">${esc(t("fAddPro"))}</button>
+            <select id="add-pro-num"></select></span>
+          <span class="adder"><button type="button" class="btn btn-lime sm" data-add="con">${esc(t("fAddCon"))}</button>
+            <select id="add-con-num"></select></span>
+        </div>
+      </section>`;
+
+    renderSpeakerList("pro");
+    renderSpeakerList("con");
+    renderEventChips();
+  }
+
+  function audioRow(labelKey, key, defaultSrc) {
+    const v = draft.settings[key];
+    const shown = v.startsWith("data:") ? "(uploaded file)" : v;
+    return `<div class="frow audio-row" data-audio="${key}">
+      <span class="flabel">${esc(t(labelKey))}</span>
+      <input type="text" class="grow" data-audio-url="${key}" placeholder="${esc(t("fUrlPlaceholder"))}"
+        value="${esc(shown)}" ${v.startsWith("data:") ? "readonly" : ""} />
+      <button type="button" class="btn btn-lime sm" data-audio-file="${key}">${esc(t("fChooseFile"))}</button>
+      <button type="button" class="btn btn-mint sm" data-audio-play="${key}" data-default="${defaultSrc}">${esc(t("fPlay"))}</button>
+      <button type="button" class="btn btn-grey sm" data-audio-default="${key}">${esc(t("fDefault"))}</button>
+    </div>`;
+  }
+
+  function sideSection(side) {
+    const s = draft.settings;
+    const isPro = side === "pro";
+    return `<section class="sgroup side-${side}">
+      <h3>${esc(t(isPro ? "fProSide" : "fConSide"))}</h3>
+      <div class="frow">
+        ${field(
+          "fLabel",
+          `<input type="text" data-path="settings.${side}_label" placeholder="${esc(t("fLabelPlaceholder"))}" value="${esc(
+            isPro ? s.pro_label : s.con_label
+          )}" />`,
+          "grow"
+        )}
+        ${field("fColor", `<input type="color" data-path="settings.${side}_colors" value="${esc(isPro ? s.pro_colors : s.con_colors)}" />`)}
+      </div>
+      <div class="speaker-list" id="list-${side}"></div>
+      <button type="button" class="btn btn-lime sm" data-add-speaker="${side}">${esc(t("fAdd"))}</button>
+    </section>`;
+  }
+
+  function renderSpeakerList(side) {
+    const list = draft[side + "_side"];
+    const root = $("list-" + side);
+    root.innerHTML = `<div class="srow head"><span></span><span>${esc(t("fName"))}</span><span>${esc(t("fSeconds"))}</span><span></span></div>`;
+    list.forEach((p, i) => {
+      const row = document.createElement("div");
+      row.className = "srow";
+      row.innerHTML = `<span class="num">${i + 1}</span>
+        <input type="text" data-sp="${side}:${i}:name" value="${esc(p.name)}" />
+        <input type="number" min="0" step="1" data-sp="${side}:${i}:time" value="${p.time}" />
+        <button type="button" class="btn btn-red sm" data-del-speaker="${side}:${i}" title="${esc(t("fRemove"))}">✕</button>`;
+      root.appendChild(row);
+    });
+    refreshAdderSelects();
+  }
+
+  function refreshAdderSelects() {
+    const fill = (sel, list) => {
+      if (!sel) return;
+      sel.innerHTML = list.map((p, i) => `<option value="${i + 1}">${i + 1} · ${esc(p.name)}</option>`).join("");
+    };
+    fill($("add-pro-num"), draft.pro_side);
+    fill($("add-con-num"), draft.con_side);
+  }
+
+  function renderEventChips() {
+    const root = $("event-chips");
+    root.innerHTML = "";
+    draft.event_order.forEach((ev, i) => {
+      const chip = document.createElement("span");
+      const id = Number(ev);
+      const missing = Number.isInteger(id) && id !== 0 && !participant2(id);
+      chip.className = "chip " + (ev === "prep" ? "c-prep" : ev === "free" ? "c-free" : id > 0 ? "c-pro" : "c-con") + (missing ? " c-missing" : "");
+      const name =
+        ev === "prep" ? t("prep") : ev === "free" ? t("free") : missing ? t("fNoSpeaker") : participant2(id).name;
+      chip.innerHTML = `<button type="button" class="mv" data-mv="${i}:-1" title="◀">◀</button>
+        <button type="button" class="lbl" data-del-event="${i}" title="${esc(name)}">${esc(eventLabel(ev))}</button>
+        <button type="button" class="mv" data-mv="${i}:1" title="▶">▶</button>`;
+      root.appendChild(chip);
+    });
+  }
+
+  function participant2(id) {
+    if (id > 0) return draft.pro_side[id - 1] || null;
+    if (id < 0) return draft.con_side[-id - 1] || null;
+    return null;
+  }
+
+  function setPath(obj, path, value) {
+    const parts = path.split(".");
+    let o = obj;
+    for (let i = 0; i < parts.length - 1; i++) o = o[parts[i]];
+    o[parts[parts.length - 1]] = value;
+  }
+
+  // Delegated form events
+  els.form.addEventListener("input", (e) => {
+    const el = e.target;
+    if (el.dataset.path) {
+      let v;
+      if (el.type === "checkbox") v = el.checked;
+      else if (el.type === "number") v = Math.max(0, Number(el.value) || 0);
+      else if (el.type === "color") v = el.value.toUpperCase();
+      else v = el.value;
+      setPath(draft, el.dataset.path, v);
+      if (el.dataset.path === "settings.language") {
+        state.lang = v;
+        applyI18n();
+        renderForm();
+      }
+    } else if (el.dataset.sp) {
+      const [side, idx, key] = el.dataset.sp.split(":");
+      const p = draft[side + "_side"][Number(idx)];
+      if (!p) return;
+      if (key === "time") p.time = Math.max(0, Number(el.value) || 0);
+      else p.name = el.value;
+      if (key === "name") {
+        refreshAdderSelects();
+        renderEventChips();
+      }
+    } else if (el.dataset.audioUrl) {
+      draft.settings[el.dataset.audioUrl] = el.value.trim();
+    }
+  });
+
+  els.form.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (!b) return;
+    const d = b.dataset;
+    if (d.addSpeaker) {
+      const side = d.addSpeaker;
+      const list = draft[side + "_side"];
+      list.push({ name: `${side === "pro" ? "Team 1" : "Team 2"} ${String.fromCharCode(65 + (list.length % 26))}`, time: 180 });
+      renderSpeakerList(side);
+      renderEventChips();
+    } else if (d.delSpeaker) {
+      const [side, idx] = d.delSpeaker.split(":");
+      draft[side + "_side"].splice(Number(idx), 1);
+      renderSpeakerList(side);
+      renderEventChips();
+    } else if (d.add) {
+      if (d.add === "prep" || d.add === "free") draft.event_order.push(d.add);
+      else {
+        const sel = $(d.add === "pro" ? "add-pro-num" : "add-con-num");
+        const n = Number(sel && sel.value);
+        if (!n) return;
+        draft.event_order.push(d.add === "pro" ? n : -n);
+      }
+      renderEventChips();
+    } else if (d.delEvent) {
+      draft.event_order.splice(Number(d.delEvent), 1);
+      renderEventChips();
+    } else if (d.mv) {
+      const [i, dir] = d.mv.split(":").map(Number);
+      const j = i + dir;
+      if (j < 0 || j >= draft.event_order.length) return;
+      const o = draft.event_order;
+      [o[i], o[j]] = [o[j], o[i]];
+      renderEventChips();
+    } else if (d.audioFile) {
+      const key = d.audioFile;
+      els.audioFileInput.onchange = () => {
+        const f = els.audioFileInput.files && els.audioFileInput.files[0];
+        els.audioFileInput.value = "";
+        if (!f) return;
+        if (f.size > 2 * 1024 * 1024) {
+          setError(t("fFileTooBig"));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          draft.settings[key] = String(reader.result);
+          setError("");
+          renderForm();
+        };
+        reader.readAsDataURL(f);
+      };
+      els.audioFileInput.click();
+    } else if (d.audioDefault) {
+      draft.settings[d.audioDefault] = "";
+      renderForm();
+    } else if (d.audioPlay) {
+      const src = draft.settings[d.audioPlay] || d.default;
+      const a = new Audio(src);
+      const p = a.play();
+      if (p && p.catch) p.catch(() => setError("Could not play: " + src));
+    }
+  });
+
+  els.form.addEventListener("submit", (e) => e.preventDefault());
 
   // ---------------------------------------------------------------------------
   // Global buttons, keyboard, end screen
@@ -632,30 +1075,28 @@
   els.btnNext.addEventListener("click", next);
 
   document.addEventListener("keydown", (e) => {
-    const editing = document.activeElement === els.editor;
+    const menuOpen = !els.menuOverlay.classList.contains("hidden");
     if (e.key === "Escape") {
-      if (!els.menuOverlay.classList.contains("hidden")) closeMenu();
+      if (menuOpen) closeMenu();
       else if (!els.endOverlay.classList.contains("hidden")) show(els.endOverlay, false);
       return;
     }
-    if (editing || !els.menuOverlay.classList.contains("hidden")) return;
+    if (menuOpen) return;
+    const tag = document.activeElement && document.activeElement.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
     if (e.key === " ") {
       e.preventDefault();
       if (state.freePhase) {
         const running = barTimers.find((bt) => bt.running);
         if (running) running.stop();
-        else if (!barPro.timedOut && barPro.remaining !== barPro.total) barPro.resume();
-        else if (barPro.remaining === barPro.total && !barPro.timedOut) barPro.start();
+        else barPro.toggle();
       } else if (!els.ringTimer.classList.contains("hidden")) {
-        if (ringTimer.running) ringTimer.stop();
-        else if (ringTimer.timedOut) return;
-        else if (ringTimer.remaining === ringTimer.total) ringTimer.start();
-        else ringTimer.resume();
+        ringTimer.toggle();
       }
     } else if (e.key === "ArrowRight" || e.key.toLowerCase() === "n") {
       next();
     } else if (e.key.toLowerCase() === "i" && state.freePhase) {
-      $("btn-invert").click();
+      invert();
     }
   });
 

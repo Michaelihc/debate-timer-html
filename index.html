@@ -19,7 +19,10 @@
     </header>
 
     <main class="stage">
-      <div id="pro-column" class="speakers pro"></div>
+      <div class="side pro">
+        <div id="pro-label" class="side-label"></div>
+        <div id="pro-column" class="speakers pro"></div>
+      </div>
 
       <section class="center">
         <!-- Single ring timer (prep + speakers) -->
@@ -87,7 +90,10 @@
         </div>
       </section>
 
-      <div id="con-column" class="speakers con"></div>
+      <div class="side con">
+        <div id="con-label" class="side-label"></div>
+        <div id="con-column" class="speakers con"></div>
+      </div>
     </main>
 
     <footer class="bottom">
@@ -98,25 +104,39 @@
       </div>
     </footer>
 
-    <!-- Edit save file panel -->
+    <!-- Settings panel -->
     <div id="menu-overlay" class="overlay hidden">
       <div class="panel">
         <div class="panel-head">
-          <div class="panel-head-left">
-            <button id="btn-lang" class="btn btn-lime">English</button>
+          <div class="tabs">
+            <button id="tab-form" class="tab active" data-i18n="tabSettings">Settings</button>
+            <button id="tab-json" class="tab" data-i18n="tabJson">JSON</button>
+          </div>
+          <h2 data-i18n="editSave">Settings</h2>
+          <div class="panel-head-right">
+            <button id="btn-lang" class="btn btn-lime">中文</button>
+            <button id="btn-close" class="btn btn-red btn-x" aria-label="Close">✕</button>
+          </div>
+        </div>
+
+        <div id="form-view" class="panel-body">
+          <form id="settings-form" class="settings" autocomplete="off"></form>
+        </div>
+
+        <div id="json-view" class="panel-body hidden">
+          <textarea id="editor" spellcheck="false"></textarea>
+          <div class="json-tools">
             <button id="btn-download" class="btn btn-lime" data-i18n="download">Download</button>
             <button id="btn-upload" class="btn btn-lime" data-i18n="upload">Upload</button>
             <input id="file-input" type="file" accept="application/json,.json" hidden />
           </div>
-          <h2 data-i18n="editSave">Edit Save File</h2>
-          <button id="btn-close" class="btn btn-red btn-x" aria-label="Close">X</button>
         </div>
-        <textarea id="editor" spellcheck="false"></textarea>
+
         <div id="editor-error" class="editor-error"></div>
         <div class="panel-actions">
-          <button id="btn-save" class="btn btn-mint" data-i18n="save">Save</button>
+          <button id="btn-save" class="btn btn-mint" data-i18n="saveApply">Save &amp; Apply</button>
           <button id="btn-discard" class="btn btn-yellow" data-i18n="discard">Discard</button>
-          <button id="btn-reset-save" class="btn btn-red" data-i18n="reset">Reset</button>
+          <button id="btn-reset-save" class="btn btn-red" data-i18n="resetDefaults">Reset to Defaults</button>
         </div>
       </div>
     </div>
@@ -135,6 +155,7 @@
 
   <audio id="audio-warning" src="assets/audio/warning.wav" preload="auto"></audio>
   <audio id="audio-end" src="assets/audio/bell.ogg" preload="auto"></audio>
+  <input id="audio-file-input" type="file" accept="audio/*" hidden />
 
   <script src="app.js"></script>
 </body>

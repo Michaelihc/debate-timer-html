@@ -2,9 +2,11 @@
 
 A browser port of [Michaelihc/debate-timer](https://github.com/Michaelihc/debate-timer), the Unity debate timer with current/next speaker indicators, a double timer for free debate, and a clickable timeline.
 
+Live: https://michaelihc.github.io/debate-timer-html/
+
 No build step and no dependencies. Plain HTML, CSS, and JavaScript.
 
-## Run
+## Run locally
 
 Open `index.html` directly in a browser, or serve the folder:
 
@@ -14,19 +16,20 @@ npx serve .
 python -m http.server 8000
 ```
 
-Then open `http://localhost:8000`.
-
 ## Features
 
-- Visualized debate layout with numbered pro and con speakers in custom colors
+- Visualized debate layout with numbered pro and con speakers in custom colors and custom side labels
 - Current speaker (speech bubble) and next speaker (arrow, flashes when time runs out) indicators
 - Ring timer for preparation and speeches, with a warning color, warning sound, red flash, and end bell
 - Double bar timer for free debate with an Invert button to hand time between sides
 - Clickable timeline to jump to any event
-- English and Simplified Chinese UI, switchable from the menu
-- Save file editor (Menu) with Save / Discard / Reset, plus Download and Upload of the JSON
+- Settings menu with a form editor and a raw JSON editor
+- Custom background color (text and ring colors adapt to light backgrounds)
+- Custom warning and end sounds, from a URL or an uploaded file
+- English and Simplified Chinese UI
+- Download / upload of the save file as JSON
 
-The save file is stored in the browser's `localStorage`. After editing it in the menu, press **Reload Scene** to apply it, exactly like the original.
+Settings are stored in the browser's `localStorage`. **Save & Apply** in the menu stores the settings and reloads the scene. **Reload Scene** restarts the debate from the stored settings.
 
 ## Keyboard
 
@@ -39,18 +42,23 @@ The save file is stored in the browser's `localStorage`. After editing it in the
 
 ## Save file format
 
-Same as the original. `language` accepts `"en"`, `"zh"`, or the original numeric values (`0` = Chinese, `1` = English).
+Compatible with the original. New optional fields are `pro_label`, `con_label`, `background_color`, `audio_warning`, and `audio_end`. `language` accepts `"en"`, `"zh"`, or the original numeric values (`0` = Chinese, `1` = English).
 
 ```json
 {
   "settings": {
     "pro_colors": "#0000FF",
     "con_colors": "#FF0000",
+    "pro_label": "",
+    "con_label": "",
+    "background_color": "#000000",
     "time_warning": 30,
     "time_prep": 300,
     "time_free": 500,
     "display_minutes": true,
-    "language": "en"
+    "language": "en",
+    "audio_warning": "",
+    "audio_end": ""
   },
   "title": "New Debate Title",
   "pro_side": [
@@ -69,10 +77,24 @@ Same as the original. `language` accepts `"en"`, `"zh"`, or the original numeric
 }
 ```
 
-`event_order` entries: `"prep"` for preparation time, `"free"` for free debate, a positive number for a pro speaker, and a negative number for a con speaker.
+- `event_order` entries: `"prep"` for preparation time, `"free"` for free debate, a positive number for a pro speaker, a negative number for a con speaker.
+- Empty labels fall back to "Pro" / "Con" (or 正方 / 反方 in Chinese).
+- Empty audio fields use the bundled sounds. Uploaded files are stored inline as data URLs (2 MB limit); larger sounds should be referenced by URL.
+
+## Status of the original to-do list
+
+| Original item | Status |
+| --- | --- |
+| Double timer for free debate | Done |
+| Labels for For and Against side | Done (`pro_label`, `con_label`) |
+| Custom background colors | Done (`background_color`) |
+| Custom audio for timers | Done (`audio_warning`, `audio_end`) |
+| GUI settings menu instead of JSON | Done (form editor, JSON still available) |
+| Clean UI | Done |
+| Remove unused shaders | Not applicable on the web |
 
 ## Files
 
 - `index.html`, `styles.css`, `app.js`: the app
 - `assets/icons/`: icons from the original project
-- `assets/audio/`: warning and end sounds from the original project
+- `assets/audio/`: default warning and end sounds from the original project
