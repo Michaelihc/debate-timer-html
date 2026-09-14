@@ -745,43 +745,90 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 0.8vh 0.6vw;
+  min-height: 4.4vh;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.chips.order {
+  padding: 0.8vh;
+  border-radius: 0.6vh;
+  background: rgba(0, 0, 0, 0.22);
   margin-bottom: 1.2vh;
-  min-height: 4vh;
+}
+.chips .empty {
+  font-size: 1.9vmin;
+  color: #999;
+  align-self: center;
+  padding: 0 0.5vw;
 }
 .chip {
+  position: relative;
   display: inline-flex;
-  align-items: stretch;
-  border-radius: 0.4em;
-  overflow: hidden;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.4em;
+  height: 3.6vh;
+  padding: 0 0.7em;
+  border-radius: 0.45em;
   background: var(--tile);
   color: #222;
-}
-.chip button {
-  font-family: inherit;
-  border: none;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  padding: 0.35em 0.45em;
-  font-size: 1.8vmin;
-}
-.chip .lbl {
-  font-size: 2.2vmin;
+  font-size: 2.1vmin;
   font-weight: 600;
-  min-width: 2.4em;
-  padding: 0.3em 0.5em;
-  border-left: 1px solid rgba(0, 0, 0, 0.1);
-  border-right: 1px solid rgba(0, 0, 0, 0.1);
+  cursor: grab;
+  touch-action: none;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+  transition: transform 0.1s, opacity 0.1s, box-shadow 0.1s;
 }
-.chip .lbl:hover {
-  background: var(--red);
+.chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+.chip .x {
+  position: absolute;
+  top: -0.7em;
+  right: -0.6em;
+  width: 1.5em;
+  height: 1.5em;
+  border: none;
+  border-radius: 50%;
+  background: #222;
   color: #fff;
+  font-size: 1.7vmin;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s;
 }
-.chip .mv {
-  color: #666;
+.chip:hover .x {
+  opacity: 1;
 }
-.chip .mv:hover {
-  background: rgba(0, 0, 0, 0.08);
+.chip .x:hover {
+  background: var(--red);
+}
+.chip.dragging {
+  opacity: 0.25;
+  box-shadow: none;
+  transform: none;
+}
+.chip.ghost {
+  position: fixed;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.95;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  cursor: grabbing;
+}
+.chip.ghost .x {
+  display: none;
+}
+.chip.add {
+  cursor: pointer;
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px currentColor;
+  font-weight: 500;
+}
+.chip.add:hover {
+  box-shadow: inset 0 0 0 1.5px currentColor, 0 3px 8px rgba(0, 0, 0, 0.3);
 }
 .chip.c-prep {
   background: var(--lime);
@@ -799,18 +846,34 @@ body {
   background: #777;
   color: #eee;
 }
-.adders {
-  gap: 1vh 1vw;
+.chip.add.c-prep {
+  background: transparent;
+  color: var(--lime);
 }
-.adder {
-  display: inline-flex;
+.chip.add.c-free {
+  background: transparent;
+  color: var(--yellow);
+}
+.chip.add.c-pro {
+  background: transparent;
+  color: #a9c4ff;
+}
+.chip.add.c-con {
+  background: transparent;
+  color: #ffb3b3;
+}
+.palette-row {
+  display: flex;
   align-items: center;
-  gap: 0.3vw;
+  gap: 1vw;
 }
-.adder select {
+.palette-label {
   font-size: 1.9vmin;
-  padding: 0.3em 0.5em;
-  max-width: 12vw;
+  color: #bbb;
+  flex: none;
+}
+.palette-row .chips {
+  min-height: 0;
 }
 
 .end-card {

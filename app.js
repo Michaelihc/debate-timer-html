@@ -101,11 +101,9 @@
       fAdd: "+ Add speaker",
       fRemove: "Remove",
       fEvents: "Event order",
-      fEventsHint: "Click an item to remove it. Use the arrows to reorder.",
-      fAddPrep: "+ Prep",
-      fAddFree: "+ Free debate",
-      fAddPro: "+ Pro",
-      fAddCon: "+ Con",
+      fEventsHint: "Drag to reorder. Hover an item and click × to remove it.",
+      fAddLabel: "Add",
+      fEmptyOrder: "No events yet. Click an item below to add it.",
       fFileTooBig: "Audio file is too large (max 2 MB). Use a URL instead.",
       fNoSpeaker: "Speaker does not exist",
     },
@@ -165,11 +163,9 @@
       fAdd: "+ 添加辩手",
       fRemove: "删除",
       fEvents: "流程顺序",
-      fEventsHint: "点击项目可删除，使用箭头调整顺序。",
-      fAddPrep: "+ 准备",
-      fAddFree: "+ 自由辩论",
-      fAddPro: "+ 正方",
-      fAddCon: "+ 反方",
+      fEventsHint: "拖动调整顺序，悬停后点击 × 删除。",
+      fAddLabel: "添加",
+      fEmptyOrder: "暂无流程，点击下方项目添加。",
       fFileTooBig: "音频文件过大（最大 2 MB），请改用 URL。",
       fNoSpeaker: "辩手不存在",
     },
@@ -866,14 +862,10 @@
       <section class="sgroup">
         <h3>${esc(t("fEvents"))}</h3>
         <p class="hint">${esc(t("fEventsHint"))}</p>
-        <div class="chips" id="event-chips"></div>
-        <div class="frow adders">
-          <button type="button" class="btn btn-lime sm" data-add="prep">${esc(t("fAddPrep"))}</button>
-          <button type="button" class="btn btn-lime sm" data-add="free">${esc(t("fAddFree"))}</button>
-          <span class="adder"><button type="button" class="btn btn-lime sm" data-add="pro">${esc(t("fAddPro"))}</button>
-            <select id="add-pro-num"></select></span>
-          <span class="adder"><button type="button" class="btn btn-lime sm" data-add="con">${esc(t("fAddCon"))}</button>
-            <select id="add-con-num"></select></span>
+        <div class="chips order" id="event-chips"></div>
+        <div class="palette-row">
+          <span class="palette-label">${esc(t("fAddLabel"))}</span>
+          <div class="chips palette" id="event-palette"></div>
         </div>
       </section>`;
 
@@ -928,34 +920,146 @@
         <button type="button" class="btn btn-red sm" data-del-speaker="${side}:${i}" title="${esc(t("fRemove"))}">✕</button>`;
       root.appendChild(row);
     });
-    refreshAdderSelects();
   }
 
-  function refreshAdderSelects() {
-    const fill = (sel, list) => {
-      if (!sel) return;
-      sel.innerHTML = list.map((p, i) => `<option value="${i + 1}">${i + 1} · ${esc(p.name)}</option>`).join("");
-    };
-    fill($("add-pro-num"), draft.pro_side);
-    fill($("add-con-num"), draft.con_side);
+  function eventName(ev) {
+    if (ev === "prep") return t("prep");
+    if (ev === "free") return t("free");
+    const p = participant2(Number(ev));
+    return p ? p.name : t("fNoSpeaker");
+  }
+
+  function makeChip(ev, extra) {
+    const chip = document.createElement("span");
+    const id = Number(ev);
+    const missing = Number.isInteger(id) && id !== 0 && !participant2(id);
+    chip.className =
+      "chip " +
+      (ev === "prep" ? "c-prep" : ev === "free" ? "c-free" : id > 0 ? "c-pro" : "c-con") +
+      (missing ? " c-missing" : "") +
+      (extra ? " " + extra : "");
+    chip.dataset.ev = String(ev);
+    chip.title = eventName(ev);
+    chip.innerHTML = `<span class="lbl">${esc(eventLabel(ev))}</span>`;
+    return chip;
   }
 
   function renderEventChips() {
     const root = $("event-chips");
     root.innerHTML = "";
+    if (draft.event_order.length === 0) {
+      root.innerHTML = `<span class="empty">${esc(t("fEmptyOrder"))}</span>`;
+    }
     draft.event_order.forEach((ev, i) => {
-      const chip = document.createElement("span");
-      const id = Number(ev);
-      const missing = Number.isInteger(id) && id !== 0 && !participant2(id);
-      chip.className = "chip " + (ev === "prep" ? "c-prep" : ev === "free" ? "c-free" : id > 0 ? "c-pro" : "c-con") + (missing ? " c-missing" : "");
-      const name =
-        ev === "prep" ? t("prep") : ev === "free" ? t("free") : missing ? t("fNoSpeaker") : participant2(id).name;
-      chip.innerHTML = `<button type="button" class="mv" data-mv="${i}:-1" title="◀">◀</button>
-        <button type="button" class="lbl" data-del-event="${i}" title="${esc(name)}">${esc(eventLabel(ev))}</button>
-        <button type="button" class="mv" data-mv="${i}:1" title="▶">▶</button>`;
+      const chip = makeChip(ev);
+      chip.insertAdjacentHTML(
+        "beforeend",
+        `<button type="button" class="x" data-del-event="${i}" title="${esc(t("fRemove"))}">×</button>`
+      );
+      root.appendChild(chip);
+    });
+    renderPalette();
+  }
+
+  function renderPalette() {
+    const root = $("event-palette");
+    root.innerHTML = "";
+    const items = ["prep", "free"]
+      .concat(draft.pro_side.map((_, i) => i + 1))
+      .concat(draft.con_side.map((_, i) => -(i + 1)));
+    items.forEach((ev) => {
+      const chip = makeChip(ev, "add");
+      chip.dataset.addEv = String(ev);
+      chip.setAttribute("role", "button");
       root.appendChild(chip);
     });
   }
+
+  function chipValue(chip) {
+    const v = chip.dataset.ev;
+    return v === "prep" || v === "free" ? v : Number(v);
+  }
+
+  // Pointer-based drag reordering for the event chips (mouse + touch).
+  (function enableChipDrag() {
+    const rootEl = () => $("event-chips");
+    let root = null;
+    let dragEl = null;
+    let ghost = null;
+    let dragging = false;
+    let sx = 0;
+    let sy = 0;
+
+    function moveGhost(e) {
+      ghost.style.transform = `translate(${e.clientX - sx}px, ${e.clientY - sy}px)`;
+    }
+
+    function placeAt(e) {
+      const chips = Array.from(root.querySelectorAll(".chip")).filter((c) => c !== dragEl);
+      if (!chips.length) return;
+      let best = null;
+      let bestDist = Infinity;
+      for (const c of chips) {
+        const r = c.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        const dist = Math.hypot((e.clientX - cx) * 0.6, e.clientY - cy);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = c;
+        }
+      }
+      const r = best.getBoundingClientRect();
+      if (e.clientX < r.left + r.width / 2) root.insertBefore(dragEl, best);
+      else root.insertBefore(dragEl, best.nextSibling);
+    }
+
+    document.addEventListener("pointerdown", (e) => {
+      root = rootEl();
+      if (!root || !root.contains(e.target)) return;
+      const chip = e.target.closest(".chip");
+      if (!chip || e.target.closest(".x") || e.button !== 0) return;
+      dragEl = chip;
+      dragging = false;
+      sx = e.clientX;
+      sy = e.clientY;
+      chip.setPointerCapture(e.pointerId);
+    });
+
+    document.addEventListener("pointermove", (e) => {
+      if (!dragEl) return;
+      if (!dragging) {
+        if (Math.hypot(e.clientX - sx, e.clientY - sy) < 5) return;
+        dragging = true;
+        const r = dragEl.getBoundingClientRect();
+        ghost = dragEl.cloneNode(true);
+        ghost.classList.add("ghost");
+        ghost.style.left = `${r.left}px`;
+        ghost.style.top = `${r.top}px`;
+        ghost.style.width = `${r.width}px`;
+        ghost.style.height = `${r.height}px`;
+        document.body.appendChild(ghost);
+        dragEl.classList.add("dragging");
+      }
+      moveGhost(e);
+      placeAt(e);
+    });
+
+    function endDrag() {
+      if (!dragEl) return;
+      if (dragging) {
+        dragEl.classList.remove("dragging");
+        if (ghost) ghost.remove();
+        ghost = null;
+        draft.event_order = Array.from(root.querySelectorAll(".chip")).map(chipValue);
+        renderEventChips();
+      }
+      dragEl = null;
+      dragging = false;
+    }
+    document.addEventListener("pointerup", endDrag);
+    document.addEventListener("pointercancel", endDrag);
+  })();
 
   function participant2(id) {
     if (id > 0) return draft.pro_side[id - 1] || null;
@@ -991,17 +1095,14 @@
       if (!p) return;
       if (key === "time") p.time = Math.max(0, Number(el.value) || 0);
       else p.name = el.value;
-      if (key === "name") {
-        refreshAdderSelects();
-        renderEventChips();
-      }
+      if (key === "name") renderEventChips();
     } else if (el.dataset.audioUrl) {
       draft.settings[el.dataset.audioUrl] = el.value.trim();
     }
   });
 
   els.form.addEventListener("click", (e) => {
-    const b = e.target.closest("button");
+    const b = e.target.closest("button, .chip.add");
     if (!b) return;
     const d = b.dataset;
     if (d.addSpeaker) {
@@ -1015,24 +1116,11 @@
       draft[side + "_side"].splice(Number(idx), 1);
       renderSpeakerList(side);
       renderEventChips();
-    } else if (d.add) {
-      if (d.add === "prep" || d.add === "free") draft.event_order.push(d.add);
-      else {
-        const sel = $(d.add === "pro" ? "add-pro-num" : "add-con-num");
-        const n = Number(sel && sel.value);
-        if (!n) return;
-        draft.event_order.push(d.add === "pro" ? n : -n);
-      }
+    } else if (d.addEv !== undefined) {
+      draft.event_order.push(chipValue(b));
       renderEventChips();
-    } else if (d.delEvent) {
+    } else if (d.delEvent !== undefined) {
       draft.event_order.splice(Number(d.delEvent), 1);
-      renderEventChips();
-    } else if (d.mv) {
-      const [i, dir] = d.mv.split(":").map(Number);
-      const j = i + dir;
-      if (j < 0 || j >= draft.event_order.length) return;
-      const o = draft.event_order;
-      [o[i], o[j]] = [o[j], o[i]];
       renderEventChips();
     } else if (d.audioFile) {
       const key = d.audioFile;
