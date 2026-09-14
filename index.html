@@ -141,6 +141,19 @@
       </div>
     </div>
 
+    <!-- Unsaved changes prompt -->
+    <div id="confirm-overlay" class="overlay confirm hidden">
+      <div class="confirm-card">
+        <h2 id="confirm-title" data-i18n="unsavedTitle">Unsaved changes</h2>
+        <p id="confirm-text" data-i18n="unsavedText">You changed the settings. Save and apply them?</p>
+        <div class="panel-actions">
+          <button id="confirm-save" class="btn btn-mint" data-i18n="saveApply">Save &amp; Apply</button>
+          <button id="confirm-discard" class="btn btn-yellow" data-i18n="discard">Discard</button>
+          <button id="confirm-cancel" class="btn btn-grey" data-i18n="keepEditing">Keep editing</button>
+        </div>
+      </div>
+    </div>
+
     <!-- End screen -->
     <div id="end-overlay" class="overlay hidden">
       <div class="end-card">

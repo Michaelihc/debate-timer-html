@@ -106,6 +106,11 @@
       fEmptyOrder: "No events yet. Click an item below to add it.",
       fFileTooBig: "Audio file is too large (max 2 MB). Use a URL instead.",
       fNoSpeaker: "Speaker does not exist",
+      unsavedTitle: "Unsaved changes",
+      unsavedText: "You changed the settings. Save and apply them?",
+      invalidTitle: "Invalid JSON",
+      invalidText: "The JSON tab has errors and cannot be saved. Discard the changes?",
+      keepEditing: "Keep editing",
     },
     zh: {
       menu: "菜单",
@@ -168,6 +173,11 @@
       fEmptyOrder: "暂无流程，点击下方项目添加。",
       fFileTooBig: "音频文件过大（最大 2 MB），请改用 URL。",
       fNoSpeaker: "辩手不存在",
+      unsavedTitle: "未保存的更改",
+      unsavedText: "设置已修改，是否保存并应用？",
+      invalidTitle: "JSON 格式错误",
+      invalidText: "JSON 内容有错误，无法保存。是否放弃更改？",
+      keepEditing: "继续编辑",
     },
   };
 
@@ -721,7 +731,45 @@
 
   function closeMenu() {
     show(els.menuOverlay, false);
+    show(confirmOverlay, false);
   }
+
+  function storedDraft() {
+    try {
+      return parseSave(loadText());
+    } catch (_) {
+      return parseSave(DEFAULT_TEXT);
+    }
+  }
+
+  function isDirty() {
+    return JSON.stringify(draft) !== JSON.stringify(storedDraft());
+  }
+
+  // Close the panel, prompting first if there are unsaved (or unparsable) edits.
+  const confirmOverlay = $("confirm-overlay");
+  function requestClose() {
+    const valid = commitView();
+    if (valid && !isDirty()) {
+      closeMenu();
+      return;
+    }
+    $("confirm-title").textContent = t(valid ? "unsavedTitle" : "invalidTitle");
+    $("confirm-text").textContent = t(valid ? "unsavedText" : "invalidText");
+    show($("confirm-save"), valid);
+    show(confirmOverlay, true);
+    $(valid ? "confirm-save" : "confirm-discard").focus();
+  }
+  $("confirm-save").addEventListener("click", saveAndApply);
+  $("confirm-discard").addEventListener("click", () => {
+    draft = storedDraft();
+    setError("");
+    closeMenu();
+  });
+  $("confirm-cancel").addEventListener("click", () => show(confirmOverlay, false));
+  confirmOverlay.addEventListener("click", (e) => {
+    if (e.target === confirmOverlay) show(confirmOverlay, false);
+  });
 
   // Pull the current view's edits into `draft`. Returns false on invalid JSON.
   function commitView() {
@@ -760,9 +808,9 @@
   els.tabJson.addEventListener("click", () => switchTab("json"));
   $("btn-menu").addEventListener("click", () => {
     if (els.menuOverlay.classList.contains("hidden")) openMenu();
-    else closeMenu();
+    else requestClose();
   });
-  $("btn-close").addEventListener("click", closeMenu);
+  $("btn-close").addEventListener("click", requestClose);
   $("btn-save").addEventListener("click", saveAndApply);
   $("btn-discard").addEventListener("click", () => {
     try {
@@ -1165,7 +1213,8 @@
   document.addEventListener("keydown", (e) => {
     const menuOpen = !els.menuOverlay.classList.contains("hidden");
     if (e.key === "Escape") {
-      if (menuOpen) closeMenu();
+      if (!confirmOverlay.classList.contains("hidden")) show(confirmOverlay, false);
+      else if (menuOpen) requestClose();
       else if (!els.endOverlay.classList.contains("hidden")) show(els.endOverlay, false);
       return;
     }

@@ -430,6 +430,7 @@ body {
 }
 .invert-btn img {
   width: 55%;
+  filter: brightness(0);
 }
 .invert-btn:hover {
   filter: brightness(1.05);
@@ -874,6 +875,37 @@ body {
 }
 .palette-row .chips {
   min-height: 0;
+}
+
+.overlay.confirm {
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.5);
+}
+.confirm-card {
+  background: #2e2e2e;
+  border-radius: 1vh;
+  padding: 3vh 3vw;
+  max-width: 60vw;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2vh;
+  box-shadow: 0 2vh 6vh rgba(0, 0, 0, 0.6);
+}
+.confirm-card h2 {
+  margin: 0;
+  font-weight: 500;
+  font-size: 3.6vmin;
+}
+.confirm-card p {
+  margin: 0;
+  font-size: 2.3vmin;
+  color: #ccc;
+  text-align: center;
+}
+.confirm-card .panel-actions .btn {
+  min-width: 11vw;
+  font-size: 2.4vmin;
 }
 
 .end-card {
