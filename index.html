@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Debate Timer</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='40' fill='none' stroke='%23fff' stroke-width='14'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Warning flash vignette -->
+    <div id="flash" class="flash" aria-hidden="true"></div>
+
+    <header class="top">
+      <button id="btn-menu" class="btn btn-lime" data-i18n="menu">Menu</button>
+      <h1 id="title" class="title">Debate Timer</h1>
+      <button id="btn-reload" class="btn btn-lime" data-i18n="reload">Reload Scene</button>
+    </header>
+
+    <main class="stage">
+      <div id="pro-column" class="speakers pro"></div>
+
+      <section class="center">
+        <!-- Single ring timer (prep + speakers) -->
+        <div id="ring-timer" class="ring-timer hidden">
+          <div class="ring-wrap">
+            <svg class="ring" viewBox="0 0 100 100">
+              <circle id="ring-bg" class="ring-bg" cx="50" cy="50" r="44" />
+              <circle id="ring-fg" class="ring-fg" cx="50" cy="50" r="44" />
+            </svg>
+            <div id="ring-text" class="ring-text">0:00</div>
+          </div>
+          <div class="controls">
+            <button id="ring-start" class="btn btn-mint" data-i18n="start">Start</button>
+            <button id="ring-pause" class="btn btn-blue" data-i18n="pause">Pause</button>
+            <button id="ring-resume" class="btn btn-mint" data-i18n="resume">Resume</button>
+            <button id="ring-out" class="btn btn-grey" disabled data-i18n="timeout">Time ran out</button>
+            <button id="ring-reset" class="btn btn-red" data-i18n="reset">Reset</button>
+          </div>
+        </div>
+
+        <!-- Double bar timer (free debate) -->
+        <div id="double-timer" class="double-timer hidden">
+          <div class="bar-timer" data-side="pro">
+            <div class="bar-label">
+              <img class="icon-timer" src="assets/icons/timer-icon.png" alt="" />
+              <img class="icon-arrow" src="assets/icons/arrow-1.png" alt="" />
+            </div>
+            <div class="bar-wrap">
+              <div class="bar-bg"></div>
+              <div class="bar-fg"></div>
+            </div>
+            <div class="bar-text">0:00</div>
+            <div class="bar-controls">
+              <button class="btn btn-mint bar-start" data-i18n="start">Start</button>
+              <button class="btn btn-blue bar-pause" data-i18n="pause">Pause</button>
+              <button class="btn btn-mint bar-resume" data-i18n="resume">Resume</button>
+              <button class="btn btn-grey bar-out" disabled data-i18n="timeout">Time ran out</button>
+              <button class="btn btn-red bar-reset" data-i18n="reset">Reset</button>
+            </div>
+          </div>
+
+          <button id="btn-invert" class="invert-btn">
+            <img src="assets/icons/swap-icon.png" alt="" />
+            <span data-i18n="invert">Invert</span>
+          </button>
+
+          <div class="bar-timer" data-side="con">
+            <div class="bar-label">
+              <img class="icon-timer" src="assets/icons/timer-icon.png" alt="" />
+              <img class="icon-arrow" src="assets/icons/arrow-1.png" alt="" />
+            </div>
+            <div class="bar-wrap">
+              <div class="bar-bg"></div>
+              <div class="bar-fg"></div>
+            </div>
+            <div class="bar-text">0:00</div>
+            <div class="bar-controls">
+              <button class="btn btn-mint bar-start" data-i18n="start">Start</button>
+              <button class="btn btn-blue bar-pause" data-i18n="pause">Pause</button>
+              <button class="btn btn-mint bar-resume" data-i18n="resume">Resume</button>
+              <button class="btn btn-grey bar-out" disabled data-i18n="timeout">Time ran out</button>
+              <button class="btn btn-red bar-reset" data-i18n="reset">Reset</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div id="con-column" class="speakers con"></div>
+    </main>
+
+    <footer class="bottom">
+      <button id="btn-next" class="btn btn-mint btn-next" data-i18n="begin">Begin</button>
+      <div class="timeline">
+        <div id="timeline-buttons" class="timeline-buttons"></div>
+        <div class="timeline-line"></div>
+      </div>
+    </footer>
+
+    <!-- Edit save file panel -->
+    <div id="menu-overlay" class="overlay hidden">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-head-left">
+            <button id="btn-lang" class="btn btn-lime">English</button>
+            <button id="btn-download" class="btn btn-lime" data-i18n="download">Download</button>
+            <button id="btn-upload" class="btn btn-lime" data-i18n="upload">Upload</button>
+            <input id="file-input" type="file" accept="application/json,.json" hidden />
+          </div>
+          <h2 data-i18n="editSave">Edit Save File</h2>
+          <button id="btn-close" class="btn btn-red btn-x" aria-label="Close">X</button>
+        </div>
+        <textarea id="editor" spellcheck="false"></textarea>
+        <div id="editor-error" class="editor-error"></div>
+        <div class="panel-actions">
+          <button id="btn-save" class="btn btn-mint" data-i18n="save">Save</button>
+          <button id="btn-discard" class="btn btn-yellow" data-i18n="discard">Discard</button>
+          <button id="btn-reset-save" class="btn btn-red" data-i18n="reset">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- End screen -->
+    <div id="end-overlay" class="overlay hidden">
+      <div class="end-card">
+        <h2 data-i18n="ended">Debate Ended</h2>
+        <div class="panel-actions">
+          <button id="btn-end-close" class="btn btn-mint" data-i18n="close">Close</button>
+          <button id="btn-end-reload" class="btn btn-lime" data-i18n="reload">Reload Scene</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <audio id="audio-warning" src="assets/audio/warning.wav" preload="auto"></audio>
+  <audio id="audio-end" src="assets/audio/bell.ogg" preload="auto"></audio>
+
+  <script src="app.js"></script>
+</body>
+</html>
